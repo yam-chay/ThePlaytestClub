@@ -432,8 +432,15 @@ body.member .m-flex{display:flex!important}
     <p class="bnote rv" id="bNote"></p>
     <div class="badmin" id="bAdmin" hidden>
       <span><span class="px">ADMIN</span> <b style="color:var(--hot)">עדכון הטבלה</b></span>
-      <textarea id="bIn" dir="ltr" placeholder="הדבק כאן (Ctrl+V) את מה שהעתקת מהכלי" style="flex:1 1 100%;min-height:4.5em;background:#0b0b09;color:var(--ink);border:2px solid var(--line);padding:.6em;font:12px/1.4 monospace"></textarea>
-      <span id="bStat">תצוגה מקדימה בלבד, רק אצלך. כדי שכולם יראו: ב-GitHub פותחים את הקובץ board.json, עריכה (העיפרון), מוחקים הכול, מדביקים את אותו טקסט ולוחצים Commit. Vercel מעדכן תוך דקה.</span>
+      <textarea id="bIn" dir="ltr" placeholder="הדבק כאן (Ctrl+V) את מה שהעתקת מהכלי, או פתח את הדף מהכפתור 'פרסום לאתר' בכלי" style="flex:1 1 100%;min-height:4.5em;background:#0b0b09;color:var(--ink);border:2px solid var(--line);padding:.6em;font:12px/1.4 monospace"></textarea>
+      <button class="btn" id="bPub" disabled>פרסום לאתר <span class="px">◀</span></button>
+      <span id="bStat">אין עדיין נתונים חדשים.</span>
+      <details id="bTok" style="flex-basis:100%;color:var(--mute);font-size:.85em"><summary>מפתח GitHub (פעם אחת בכל מכשיר)</summary>
+        <p style="margin:.6em 0">כדי שהכפתור יוכל לעדכן את האתר, צריך מפתח גישה מוגבל ל-GitHub. הוא נשמר רק בדפדפן הזה.<br>
+        GitHub ← Settings ← Developer settings ← Personal access tokens ← Fine-grained tokens ← Generate new token.<br>
+        Repository access: רק ThePlaytestClub. Permissions: Contents ← Read and write. ואז להדביק כאן:</p>
+        <span style="display:flex;gap:.6rem;flex-wrap:wrap"><input id="bTokIn" type="password" dir="ltr" autocomplete="off" placeholder="github_pat_..." style="flex:1 1 260px;background:#0b0b09;color:var(--ink);border:2px solid var(--line);padding:.5em"><button class="btn ghost" id="bTokSave" style="padding:.6em 1em">שמירה</button><button class="btn ghost" id="bTokDel" style="padding:.6em 1em">מחיקה</button></span>
+      </details>
     </div>
   </div>
 </section>
@@ -562,11 +569,29 @@ var adm=document.getElementById('bAdmin'),pending=null;
 function showAdmin(){adm.hidden=false}
 if(new URLSearchParams(location.search).has('admin'))showAdmin();
 document.getElementById('hsTitle').addEventListener('click',function(e){if(e.detail>=3)showAdmin()});
-var previewing=false;
-document.getElementById('bIn').addEventListener('input',function(){var t=this.value.trim();if(!t)return;var d;try{d=JSON.parse(t)}catch(e){}
-  var st=document.getElementById('bStat');
-  if(!d||d.v!==1||!Array.isArray(d.players)){st.textContent='זה לא נראה כמו נתוני טבלה. בכלי: טבלת שיאים, "העתקה לאתר", ואז להדביק כאן שוב.';return}
-  previewing=true;renderBoard(d);st.textContent='תצוגה מקדימה: '+d.players.length+' לוחמים. כדי שכולם יראו: ב-GitHub פותחים את board.json, עריכה, מדביקים את אותו טקסט במקום הקיים ו-Commit.';});
+var previewing=false,pendingB=null,REPO='yam-chay/theplaytestclub';
+function bStat(t){document.getElementById('bStat').textContent=t}
+function tok(){return lsGet('ptc_gh')}
+function takeB(d,src){if(!d||d.v!==1||!Array.isArray(d.players)){bStat('זה לא נראה כמו נתוני טבלה. בכלי: טבלת שיאים, ואז "פרסום לאתר" או "העתקה לאתר".');return}
+  previewing=true;pendingB=d;renderBoard(d);document.getElementById('bPub').disabled=false;
+  bStat('תצוגה מקדימה: '+d.players.length+' לוחמים. רק אתה רואה את זה. "פרסום לאתר" יעדכן את כולם.'+(tok()?'':' קודם צריך מפתח GitHub, למטה.'));if(!tok())document.getElementById('bTok').open=true;showAdmin()}
+document.getElementById('bIn').addEventListener('input',function(){var t=this.value.trim();if(!t)return;var d;try{d=JSON.parse(t)}catch(e){}takeB(d)});
+// data handed over from the admin tool: #b=<base64 json>
+(function(){var m=location.hash.match(/[#&]b=([^&]+)/);if(!m)return;try{var bin=atob(decodeURIComponent(m[1])),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);takeB(JSON.parse(new TextDecoder().decode(u)))}catch(e){bStat('הנתונים מהכלי לא נקראו. נסה שוב, או העתק והדבק.');showAdmin()}
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}})();
+document.getElementById('bTokSave').addEventListener('click',function(){var v=document.getElementById('bTokIn').value.trim();if(!v)return;lsSet('ptc_gh',v);document.getElementById('bTokIn').value='';bStat('המפתח נשמר בדפדפן הזה.'+(pendingB?' אפשר לפרסם.':''));document.getElementById('bTok').open=false});
+document.getElementById('bTokDel').addEventListener('click',function(){lsSet('ptc_gh',null);bStat('המפתח נמחק מהדפדפן הזה.')});
+function b64(str){var u=new TextEncoder().encode(str),s='';for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+document.getElementById('bPub').addEventListener('click',function(){
+  var t=tok();if(!pendingB)return;if(!t){bStat('חסר מפתח GitHub. פתח את "מפתח GitHub" למטה.');document.getElementById('bTok').open=true;return}
+  var btn=this;btn.disabled=true;bStat('מפרסם…');
+  var api='https://api.github.com/repos/'+REPO+'/contents/board.json',H={'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json'};
+  fetch(api+'?ref=main',{headers:H,cache:'no-store'}).then(function(r){if(r.status===401||r.status===403)throw 'auth';return r.ok?r.json():{}}).then(function(cur){
+    return fetch(api,{method:'PUT',headers:H,body:JSON.stringify({message:'Update leaderboard',content:b64(JSON.stringify(pendingB)+'\n'),branch:'main',sha:cur.sha})})
+  }).then(function(r){if(r.status===401||r.status===403)throw 'auth';if(!r.ok)throw 'http'+r.status;
+    bStat('פורסם ✓ האתר יתעדכן לכולם תוך דקה בערך.');pendingB=null;
+  }).catch(function(e){btn.disabled=false;bStat(e==='auth'?'GitHub דחה את המפתח. בדוק שהוא בתוקף ושיש לו Contents: Read and write על ThePlaytestClub.':'הפרסום נכשל ('+e+'). נסה שוב בעוד רגע.')});
+});
 // live data: board.json next to the page (updated in GitHub). Falls back to the data embedded in the page.
 if(window.fetch&&location.protocol!=='file:')fetch('board.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(function(d){if(!previewing&&(d===null||(d&&d.v===1)))renderBoard(d)}).catch(function(){});
 
